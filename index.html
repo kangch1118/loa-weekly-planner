@@ -1,218 +1,221 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>LOA Weekly Planner</title>
 
 <style>
-:root {
-  --bg: #0f1117;
-  --panel: #1a1d26;
-  --card: #242836;
-  --accent: #6aa7ff;
-  --text: #e6e6e6;
-  --sub: #9aa4b2;
-  --radius: 16px;
+:root{
+  --bg:#0f1117;--panel:#1a1d26;--card:#242836;
+  --accent:#6aa7ff;--danger:#ff6a6a;
+  --text:#e6e6e6;--sub:#9aa4b2;--radius:16px;
 }
-
-* {
-  box-sizing: border-box;
-  font-family: Pretendard, sans-serif;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-}
-
-.container {
-  display: flex;
-  height: 100vh;
-  padding: 20px;
-  gap: 20px;
-}
+*{box-sizing:border-box;font-family:Pretendard,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text)}
+.container{display:flex;height:100vh;padding:20px;gap:20px}
 
 /* LEFT */
-.left {
-  width: 320px;
-  background: var(--panel);
-  border-radius: var(--radius);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
+.left{
+  width:360px;background:var(--panel);border-radius:var(--radius);
+  padding:20px;display:flex;flex-direction:column
 }
-
-input, button {
-  border: none;
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 10px;
+input,button{border:none;border-radius:12px;padding:10px;margin-bottom:10px}
+input{background:var(--card);color:var(--text)}
+button{background:var(--accent);font-weight:bold;cursor:pointer}
+.reset{background:var(--danger)}
+.share{background:#6affb7;color:#000}
+.char-list{overflow-y:auto;margin-top:10px}
+.char-card{
+  background:var(--card);border-radius:14px;padding:12px;margin-bottom:12px;
+  position:relative
 }
-
-input {
-  background: var(--card);
-  color: var(--text);
+.delete-char{
+  position:absolute;top:8px;right:10px;
+  cursor:pointer;color:var(--danger);font-weight:bold
 }
-
-button {
-  background: var(--accent);
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.char-list {
-  overflow-y: auto;
-}
-
-.char-card {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-
-.raid {
-  font-size: 13px;
-  color: var(--sub);
-  margin-top: 4px;
-  cursor: grab;
-}
+.raid{font-size:13px;color:var(--sub);margin-top:6px;cursor:grab}
 
 /* RIGHT */
-.right {
-  flex: 1;
-  background: var(--panel);
-  border-radius: var(--radius);
-  padding: 20px;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 12px;
+.right{
+  flex:1;background:var(--panel);border-radius:var(--radius);
+  padding:20px;display:grid;grid-template-columns:repeat(7,1fr);gap:12px
 }
-
-.day {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 10px;
-  min-height: 120px;
+.day{background:var(--card);border-radius:14px;padding:10px;min-height:150px}
+.day h3{text-align:center;margin:0 0 8px}
+.slot{
+  background:#181b24;border-radius:10px;padding:6px;
+  margin-bottom:6px;font-size:13px;cursor:pointer
 }
-
-.day h3 {
-  text-align: center;
-  margin: 0 0 8px;
-}
-
-.slot {
-  background: #181b24;
-  border-radius: 10px;
-  padding: 6px;
-  margin-bottom: 6px;
-  font-size: 13px;
-}
+.slot:hover{background:#2a2f40}
 </style>
 </head>
 
 <body>
 <div class="container">
 
-  <!-- LEFT -->
   <div class="left">
     <h2>원정대</h2>
     <input id="name" placeholder="캐릭터 이름">
-    <input id="level" type="number" placeholder="레벨">
+    <input id="level" type="number" placeholder="아이템 레벨">
     <button onclick="addCharacter()">추가</button>
+    <button class="reset" onclick="resetWeek()">주간 초기화</button>
+    <button class="share" onclick="shareSchedule()">공유 링크 생성</button>
     <div class="char-list" id="charList"></div>
   </div>
 
-  <!-- RIGHT -->
   <div class="right" id="calendar"></div>
 
 </div>
 
 <script>
-const RAID_RULES = [
-  { name: "발탄", min: 1415 },
-  { name: "비아키스", min: 1430 },
-  { name: "쿠크세이튼", min: 1475 },
-  { name: "아브 1-2", min: 1490 },
-  { name: "아브 3-4", min: 1520 },
-  { name: "카양겔", min: 1540 },
-];
+const DAYS=["수","목","금","토","일","월","화"];
+let characters=[];
+let schedule=Object.fromEntries(DAYS.map(d=>[d,[]]));
+let dragData=null;
 
-const DAYS = ["수","목","금","토","일","월","화"];
-
-let characters = JSON.parse(localStorage.getItem("chars")) || [];
-let schedule = JSON.parse(localStorage.getItem("schedule")) || Object.fromEntries(DAYS.map(d => [d,[]]));
-let dragData = null;
-
-function save() {
-  localStorage.setItem("chars", JSON.stringify(characters));
-  localStorage.setItem("schedule", JSON.stringify(schedule));
+/* 🔥 레벨별 레이드 로직 */
+function getWeeklyRaids(level){
+  if(level>=1640&&level<=1659){
+    return[
+      "에픽 레이드 - 베히모스",
+      "카제로스 서막 - 에키드나 하드",
+      "군단장 레이드 - 카멘 하드"
+    ];
+  }
+  if(level>=1660&&level<=1669){
+    return[
+      "카제로스 1막 - 에기르 노말",
+      "카제로스 서막 - 에키드나 하드",
+      "에픽 레이드 - 베히모스"
+    ];
+  }
+  if(level>=1670&&level<=1679){
+    return[
+      "카제로스 1막 - 에기르 노말",
+      "카제로스 서막 - 에키드나 하드",
+      "카제로스 2막 - 아브렐슈드 노말"
+    ];
+  }
+  if(level>=1680){
+    return[
+      "카제로스 1막 - 에기르 하드",
+      "카제로스 2막 - 아브렐슈드 노말",
+      "카제로스 - 모르둠 노말"
+    ];
+  }
+  return[];
 }
 
-function getRaids(level) {
-  return RAID_RULES.filter(r => level >= r.min).slice(-3);
+/* 저장 & 로드 */
+function save(){
+  localStorage.setItem("chars",JSON.stringify(characters));
+  localStorage.setItem("schedule",JSON.stringify(schedule));
+}
+function load(){
+  characters=JSON.parse(localStorage.getItem("chars"))||[];
+  schedule=JSON.parse(localStorage.getItem("schedule"))
+    ||Object.fromEntries(DAYS.map(d=>[d,[]]));
 }
 
-function addCharacter() {
-  const name = nameInput.value;
-  const level = +levelInput.value;
-  if (!name || !level) return;
-
-  characters.push({ name, level, raids: getRaids(level) });
-  save();
-  renderCharacters();
+/* 캐릭터 */
+function addCharacter(){
+  const name=nameInput.value.trim();
+  const level=Number(levelInput.value);
+  if(!name||!level){alert("이름과 레벨 입력");return;}
+  const raids=getWeeklyRaids(level);
+  if(!raids.length){alert("1640 이상만 지원");return;}
+  characters.push({name,level,raids});
+  nameInput.value="";levelInput.value="";
+  save();renderCharacters();
+}
+function deleteCharacter(name){
+  if(!confirm(`${name} 삭제할까요?`))return;
+  characters=characters.filter(c=>c.name!==name);
+  DAYS.forEach(d=>{
+    schedule[d]=schedule[d].filter(s=>s.char!==name);
+  });
+  save();renderCharacters();renderCalendar();
 }
 
-function renderCharacters() {
-  charList.innerHTML = "";
-  characters.forEach(c => {
-    const card = document.createElement("div");
-    card.className = "char-card";
-    card.innerHTML = `<b>${c.name}</b> (${c.level})`;
-    c.raids.forEach(r => {
-      const raid = document.createElement("div");
-      raid.className = "raid";
-      raid.textContent = `• ${r.name}`;
-      raid.draggable = true;
-
-      raid.ondragstart = () => {
-        dragData = { char: c.name, raid: r.name };
-      };
-
+/* 렌더 */
+function renderCharacters(){
+  charList.innerHTML="";
+  characters.forEach(c=>{
+    const card=document.createElement("div");
+    card.className="char-card";
+    card.innerHTML=`
+      <b>${c.name}</b> (${c.level})
+      <span class="delete-char" onclick="deleteCharacter('${c.name}')">✖</span>
+    `;
+    c.raids.forEach(r=>{
+      const raid=document.createElement("div");
+      raid.className="raid";
+      raid.textContent=`• ${r}`;
+      raid.draggable=true;
+      raid.ondragstart=()=>dragData={char:c.name,raid:r};
       card.appendChild(raid);
     });
     charList.appendChild(card);
   });
 }
 
-function renderCalendar() {
-  calendar.innerHTML = "";
-  DAYS.forEach(d => {
-    const day = document.createElement("div");
-    day.className = "day";
-    day.innerHTML = `<h3>${d}</h3>`;
-
-    day.ondragover = e => e.preventDefault();
-    day.ondrop = () => {
-      if (!dragData) return;
+function renderCalendar(){
+  calendar.innerHTML="";
+  DAYS.forEach(d=>{
+    const day=document.createElement("div");
+    day.className="day";
+    day.innerHTML=`<h3>${d}</h3>`;
+    day.ondragover=e=>e.preventDefault();
+    day.ondrop=()=>{
+      if(!dragData)return;
       schedule[d].push(dragData);
-      dragData = null;
-      save();
-      renderCalendar();
+      dragData=null;save();renderCalendar();
     };
-
-    schedule[d].forEach(s => {
-      const slot = document.createElement("div");
-      slot.className = "slot";
-      slot.textContent = `${s.char} - ${s.raid}`;
+    schedule[d].forEach((s,i)=>{
+      const slot=document.createElement("div");
+      slot.className="slot";
+      slot.textContent=`${s.char} - ${s.raid}`;
+      slot.onclick=()=>{
+        if(confirm("이 일정 삭제할까요?")){
+          schedule[d].splice(i,1);
+          save();renderCalendar();
+        }
+      };
       day.appendChild(slot);
     });
-
     calendar.appendChild(day);
   });
 }
 
+/* 기타 */
+function resetWeek(){
+  if(!confirm("이번 주 전부 초기화?"))return;
+  schedule=Object.fromEntries(DAYS.map(d=>[d,[]]));
+  save();renderCalendar();
+}
+
+function shareSchedule(){
+  const data=btoa(encodeURIComponent(JSON.stringify({characters,schedule})));
+  const url=`${location.origin}${location.pathname}?data=${data}`;
+  navigator.clipboard.writeText(url);
+  alert("공유 링크 복사 완료!");
+}
+
+/* URL 복원 */
+function loadFromURL(){
+  const params=new URLSearchParams(location.search);
+  if(!params.has("data"))return;
+  const decoded=JSON.parse(
+    decodeURIComponent(atob(params.get("data")))
+  );
+  characters=decoded.characters;
+  schedule=decoded.schedule;
+  save();
+}
+
+/* INIT */
+loadFromURL();
+load();
 renderCharacters();
 renderCalendar();
 </script>
